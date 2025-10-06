@@ -1,0 +1,32 @@
+version: "2"
+
+run:
+  go: '1.25.0'
+  timeout: 5m
+  concurrency: 4
+  issues-exit-code: 1
+
+linters:
+  default: standard
+  enable:
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - revive
+    - misspell
+    - unconvert
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
