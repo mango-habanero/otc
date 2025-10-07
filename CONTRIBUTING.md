@@ -63,3 +63,12 @@ Refs: OTC-X
 - E2E tests: `test/e2e/`
 
 Use table-driven tests. See `pkg/otc/version_test.go` for example.
+
+## Releases
+
+Releases are automated via semantic versioning:
+- Merges to `main` trigger automatic version detection
+- Version determined by commit types (feat/fix/BREAKING CHANGE)
+- Tags, changelog, and GitHub releases created automatically
+
+No manual versioning needed.
