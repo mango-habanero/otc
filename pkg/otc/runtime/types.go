@@ -56,13 +56,13 @@ const (
 
 // Runtime name constants for OTC_RUNTIME environment variable.
 const (
-	RNRunc       = "runc"
-	RNCrun       = "crun"
-	RNYouki      = "youki"
-	RNContainerd = "containerd"
-	RNCRIO       = "crio"
-	RNPodman     = "podman"
-	RNDocker     = "docker"
+	Runc       = "runc"
+	Crun       = "crun"
+	Youki      = "youki"
+	Containerd = "containerd"
+	CRIO       = "crio"
+	Podman     = "podman"
+	Docker     = "docker"
 )
 
 // Result contains the results of runtime detection.
@@ -203,25 +203,25 @@ func (d *Detector) detectOverride(ctx context.Context) (*Result, error) {
 
 	// Determine which detector to use based on override value
 	switch d.override {
-	case RNRunc, RNCrun, RNYouki:
+	case Runc, Crun, Youki:
 		if d.oci == nil {
 			return nil, fmt.Errorf("OTC_RUNTIME=%s but OCI detector not configured", d.override)
 		}
 		runtimes, err = d.oci.Detect()
 
-	case RNContainerd, RNCRIO:
+	case Containerd, CRIO:
 		if d.cri == nil {
 			return nil, fmt.Errorf("OTC_RUNTIME=%s but CRI detector not configured", d.override)
 		}
 		runtimes, err = d.cri.Detect(ctx)
 
-	case RNPodman:
+	case Podman:
 		if d.podman == nil {
 			return nil, fmt.Errorf("OTC_RUNTIME=%s but Podman detector not configured", d.override)
 		}
 		runtimes, err = d.podman.Detect(ctx)
 
-	case RNDocker:
+	case Docker:
 		return nil, fmt.Errorf("docker runtime not yet supported")
 
 	default:

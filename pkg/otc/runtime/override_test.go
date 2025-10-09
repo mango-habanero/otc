@@ -20,14 +20,14 @@ func TestGetOverrideFromEnv(t *testing.T) {
 			want:     "",
 		},
 		{
-			name:     "runc",
-			envValue: "runc",
-			want:     "runc",
+			name:     Runc,
+			envValue: Runc,
+			want:     Runc,
 		},
 		{
 			name:     "with whitespace",
 			envValue: "  runc  ",
-			want:     "runc",
+			want:     Runc,
 		},
 		{
 			name:     "containerd",
@@ -80,7 +80,7 @@ func TestDetector_Detect_WithOverride(t *testing.T) {
 	}{
 		{
 			name:     "override runc - found",
-			override: "runc",
+			override: Runc,
 			oci:      NewOCIDetector(),
 			cri:      nil,
 			podman:   nil,
@@ -92,13 +92,13 @@ func TestDetector_Detect_WithOverride(t *testing.T) {
 				// We can't guarantee runc is installed, but if result
 				// is returned, it should have the right structure
 				if len(result.Runtimes) > 0 {
-					if result.Runtimes[0].Name != "runc" {
+					if result.Runtimes[0].Name != Runc {
 						t.Errorf("expected runc, got %s", result.Runtimes[0].Name)
 					}
 					if result.Selected == nil {
 						t.Error("expected Selected to be set")
 					}
-					if result.Selected.Name != "runc" {
+					if result.Selected.Name != Runc {
 						t.Errorf("expected Selected to be runc, got %s", result.Selected.Name)
 					}
 				}
@@ -138,7 +138,7 @@ func TestDetector_Detect_WithOverride(t *testing.T) {
 			cri:      nil,
 			podman:   nil,
 			wantErr:  true,
-			errMsg:   "Docker runtime not yet supported",
+			errMsg:   "docker runtime not yet supported",
 		},
 	}
 
@@ -206,7 +206,7 @@ func TestNewDetector_ReadsEnv(t *testing.T) {
 	// This test modifies env, so can't run parallel
 
 	// Set environment variable
-	if err := os.Setenv("OTC_RUNTIME", "runc"); err != nil {
+	if err := os.Setenv("OTC_RUNTIME", Runc); err != nil {
 		t.Fatalf("failed to set OTC_RUNTIME: %v", err)
 	}
 	defer func() {
@@ -218,7 +218,7 @@ func TestNewDetector_ReadsEnv(t *testing.T) {
 	detector := NewDetector(NewOCIDetector(), nil, nil)
 
 	// Check that detector has override set
-	if detector.override != "runc" {
+	if detector.override != Runc {
 		t.Errorf("expected override to be 'runc', got %q", detector.override)
 	}
 }
