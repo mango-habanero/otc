@@ -3,6 +3,9 @@ package runtime
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"strings"
 )
 
 // Type represents the category of container runtime.
@@ -51,6 +54,17 @@ const (
 	PriorityDocker = 30  // Docker (backward compatibility)
 )
 
+// Runtime name constants for OTC_RUNTIME environment variable.
+const (
+	Runc       = "runc"
+	Crun       = "crun"
+	Youki      = "youki"
+	Containerd = "containerd"
+	CRIO       = "crio"
+	Podman     = "podman"
+	Docker     = "docker"
+)
+
 // Result contains the results of runtime detection.
 type Result struct {
 	// Runtimes is the list of all detected runtimes, ordered by priority (highest first)
@@ -94,18 +108,24 @@ type PodmanDetector interface {
 
 // Detector orchestrates runtime detection across all types.
 type Detector struct {
-	oci    OCIDetector
-	cri    CRIDetector
-	podman PodmanDetector
+	oci      OCIDetector
+	cri      CRIDetector
+	podman   PodmanDetector
+	override string // If set, only detect this specific runtime
 }
 
 // NewDetector creates a new runtime detector with the provided implementations.
 // Pass nil for any detector type not needed.
+//
+// The detector automatically reads the OTC_RUNTIME environment variable.
+// If set, only the specified runtime will be detected.
+// Valid values: runc, crun, youki, containerd, crio, podman, docker
 func NewDetector(oci OCIDetector, cri CRIDetector, podman PodmanDetector) *Detector {
 	return &Detector{
-		oci:    oci,
-		cri:    cri,
-		podman: podman,
+		oci:      oci,
+		cri:      cri,
+		podman:   podman,
+		override: getOverrideFromEnv(),
 	}
 }
 
@@ -113,7 +133,15 @@ func NewDetector(oci OCIDetector, cri CRIDetector, podman PodmanDetector) *Detec
 // It aggregates results from all configured detectors and selects the highest priority runtime.
 // If individual detectors fail, detection continues and errors are returned in Result.Warnings.
 // Only returns error if all detectors fail or a fatal error occurs.
+//
+// If OTC_RUNTIME environment variable is set, only the specified runtime is detected.
+// Returns error if the specified runtime is not found.
 func (d *Detector) Detect(ctx context.Context) (*Result, error) {
+	// If override is set, only detect that runtime
+	if d.override != "" {
+		return d.detectOverride(ctx)
+	}
+
 	var runtimes []Runtime
 	var warnings []error
 
@@ -147,7 +175,7 @@ func (d *Detector) Detect(ctx context.Context) (*Result, error) {
 		}
 	}
 
-	// If no runtimes found, and we have warnings, return the first error
+	// If no runtimes found and we have warnings, return the first error
 	if len(runtimes) == 0 && len(warnings) > 0 {
 		return nil, warnings[0]
 	}
@@ -166,4 +194,66 @@ func (d *Detector) Detect(ctx context.Context) (*Result, error) {
 	}
 
 	return result, nil
+}
+
+// detectOverride detects only the runtime specified in OTC_RUNTIME.
+func (d *Detector) detectOverride(ctx context.Context) (*Result, error) {
+	var runtimes []Runtime
+	var err error
+
+	// Determine which detector to use based on override value
+	switch d.override {
+	case Runc, Crun, Youki:
+		if d.oci == nil {
+			return nil, fmt.Errorf("OTC_RUNTIME=%s but OCI detector not configured", d.override)
+		}
+		runtimes, err = d.oci.Detect()
+
+	case Containerd, CRIO:
+		if d.cri == nil {
+			return nil, fmt.Errorf("OTC_RUNTIME=%s but CRI detector not configured", d.override)
+		}
+		runtimes, err = d.cri.Detect(ctx)
+
+	case Podman:
+		if d.podman == nil {
+			return nil, fmt.Errorf("OTC_RUNTIME=%s but Podman detector not configured", d.override)
+		}
+		runtimes, err = d.podman.Detect(ctx)
+
+	case Docker:
+		return nil, fmt.Errorf("docker runtime not yet supported")
+
+	default:
+		return nil, fmt.Errorf("invalid OTC_RUNTIME value: %s (valid: runc, crun, youki, containerd, crio, podman)", d.override)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect runtime %s: %w", d.override, err)
+	}
+
+	// Filter to only the requested runtime
+	var filtered []Runtime
+	for _, rt := range runtimes {
+		if rt.Name == d.override {
+			filtered = append(filtered, rt)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, fmt.Errorf("runtime %s not found on system", d.override)
+	}
+
+	result := &Result{
+		Runtimes: filtered,
+		Selected: &filtered[0],
+	}
+
+	return result, nil
+}
+
+// getOverrideFromEnv reads the OTC_RUNTIME environment variable.
+// Returns empty string if not set or if value is empty after trimming whitespace.
+func getOverrideFromEnv() string {
+	return strings.TrimSpace(os.Getenv("OTC_RUNTIME"))
 }
