@@ -175,7 +175,7 @@ func (d *Detector) Detect(ctx context.Context) (*Result, error) {
 		}
 	}
 
-	// If no runtimes found and we have warnings, return the first error
+	// If no runtimes found, and we have warnings, return the first error
 	if len(runtimes) == 0 && len(warnings) > 0 {
 		return nil, warnings[0]
 	}
